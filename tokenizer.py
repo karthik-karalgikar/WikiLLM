@@ -1,9 +1,9 @@
 from datasets import load_from_disk
 import pickle
 
-dataset = load_from_disk("/.wikipedia_data")
+dataset = load_from_disk("wikipedia_data")
 
-num_articles = 10000
+num_articles = 1000
 texts = [dataset[i]['text'] for i in range(min(num_articles, len(dataset)))]
 text = "\n".join(texts)
 
@@ -32,7 +32,7 @@ def merge(ids, pair, idx):
             i = i + 1
     return newids
 
-vocab_size = 10000
+vocab_size = 5000
 num_merges = vocab_size - 256
 ids = list(tokens) #copy so that we don't destroy the original list
 
@@ -126,7 +126,57 @@ Decode = numbers -> text
 to make the model understand the prompts, we need to encode our text into numbers.
 and the output of the model will also be in numbers. For us to understand, we need to decode it back to text.
 '''
+def encode(text):
+    #given a string, return list of integers
+    tokens = list(text.encode("utf-8"))
+    while len(tokens) >= 2:
+        stats = get_stats(tokens)
+        pair = min(stats, key = lambda p: merges.get(p, float("-inf")))
+        if pair not in merges:
+            break # nothing to merge
+        idx = merges[pair]
+        tokens = merge(tokens, pair, idx)
 
+    return tokens
+
+'''
+TRACING 
+
+suppose text = Hello
+
+tokens = list(text.encode("utf-8"))
+text.encode("utf-8") = b'Hello'
+list(b'Hello') = [72, 101, 108, 108, 111]
+
+while len(tokens) >= 2: -> we keep merging as long as there are at least 2 tokens
+
+    stats = get_stats(tokens)
+    -> merging => 
+    stats = {
+        (72, 101) : 1
+        (101, 108) : 1
+        (108, 108) : 1
+        (108, 111) : 1
+    }
+
+    pair = min(stats, key = lambda p: merges.get(p, float("-inf")))
+
+    merges.get(p, float("-inf")) means, if p exists in merges, then get the token ID of p(256, 257, etc), basically the value of the key
+    or else return float("-inf")
+    
+    merges dictonary looks something like this -> 
+
+    merges = {
+    (101, 32): 256,   # "e " was merged first  (priority 256)
+    (116, 104): 257,  # "th" was merged second (priority 257)
+    (105, 110): 258,  # "in" was merged third  (priority 258)
+    ...
+    }
+
+    
+
+
+'''
 
 def decode(ids):
     #given ids (list of integers), return python strings
@@ -134,6 +184,47 @@ def decode(ids):
     text = tokens.decode("utf-8", errors="replace")
     return text 
 
+'''
+TRACING - 
+
+ids = [72, 101, 257]
+
+vocab = {
+    72 : b'H',
+    101 : b'e',
+    257 : b'llo'
+}
+
+for idx in ids -> loop through each idx in ids 
+
+vocab[idx] = 
+
+vocab[72] = b'H'
+vocab[101] = b'e'
+vocab[257] = b'llo'
+
+b"".join(..) -> concatenate all the bytes together
+
+=> b'H' + b'e' + b'llo' -> b'Hello'
+
+tokens = b'Hello'
+
+text = tokens.decode("utf-8", errors="replace")
+This line converts byte to text(string)
+
+.decode("utf-8") -> converts bytes to text using utf-8 encoding, meaning -> 
+b'Hello' = 'Hello'
+
+errors="replace" - If there are invalid UTF-8 bytes, replace them with � instead of crashing
+
+so now, text = Hello is a readable string.
+
+NOTE: 
+just because we are using .decode(), doesn't mean it is a recursion function. 
+It calls the built-in .decode() method on a byte string
+
+
+'''
 
 
 
