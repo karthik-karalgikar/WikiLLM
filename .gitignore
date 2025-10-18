@@ -218,3 +218,4 @@ __marimo__/
 #dataset
 wikipedia_data
 tokenizer.pkl
+train_data.npz
